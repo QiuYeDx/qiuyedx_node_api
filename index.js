@@ -5,13 +5,7 @@ const {getFormattedDate} = require("./utils");
 
 const app = express();
 
-const connection = mysql.createConnection({
-    host: 'localhost',
-    port: '3306',
-    user: 'root',
-    password: '20011216',
-    database: 'api'
-});
+const connection = mysql.createConnection(config.config);
 
 // 解析请求体
 app.use(express.json());
@@ -22,6 +16,11 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE'); // 允许的 HTTP 请求方法
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); // 允许的请求头
     next();
+});
+
+// 启动后端服务器
+app.listen(5050, '0.0.0.0', () => {
+    console.log('Server is running on port 5050');
 });
 
 /**
@@ -114,6 +113,9 @@ app.put('/api/counts', (req, res) => {
             }
         }
     });
+
+    let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    putLog('/api/counts', 'PUT', {name, api_key}, req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1], ip, 'L', '合法的PUT请求, 更新数据库中指定name的记录');
     console.log(`\n[${getFormattedDate()}] [/api/counts] [L]合法的PUT请求, 参数为: \n|---name: ${name} \n|---api_key: ${api_key} \n来自: ${req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1]}`);
 });
 
@@ -143,7 +145,7 @@ app.get('/api/url/counts', (req, res) => {
                 console.log('Failed to query the database: ', error);
                 res.status(500).json({error: 'Failed to query the database'});
             } else {
-                res.json(results);  // 前端用res.data获取results, 这里res.data是个长度为零或一的数组
+                res.json(results);  // 前端用res.data获取results
             }
         });
     }else{  // 若指定了url，则查询数据库中指定domain和url的记录
@@ -206,10 +208,71 @@ app.put('/api/url/counts', (req, res) => {
             }
         }
     });
+
+    let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    putLog('/api/url/counts', 'PUT', {domain, url}, req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1], ip, 'L', '合法的PUT请求, 更新网页访问次数');
     console.log(`\n[${getFormattedDate()}] [/api/url/counts] [L]合法的PUT请求, 参数为: \n|---domain: ${domain} \n|---url: ${url} \n|---来自: ${req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1]}`);
 });
 
-// 启动后端服务器
-app.listen(5050, () => {
-    console.log('Server is running on port 5050');
+/**
+ * 查询日志
+ *
+ * GET /api/logs 查询指定分页的日志
+ *
+ * @param api_key - 密钥
+ * @param n_per_page - 每页数量
+ * @param p_index - 第几页
+ */
+app.get('/api/logs', (req, res) => {
+    // 检验请求权身份是否合法
+    const {api_key} = req.query;
+    if(api_key !== config.globalKey){
+        console.log('\n' + '[' + getFormattedDate() + '] [/api/logs]' + ' [M]身份非法的GET请求, api_key为: ' + api_key + '\n|---来自: ', req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1]);
+        res.status(401).json({ error: 'Unauthorized' }); // 密钥不匹配，返回未经授权的错误响应
+        return;
+    }
+
+    let {n_per_page, p_index} = req.query;
+    n_per_page = parseInt(n_per_page);
+    p_index = parseInt(p_index);
+    // 检验参数合法性
+    if(!n_per_page || !p_index){
+        console.log('\n' + '[' + getFormattedDate() + '] [/api/logs]' + ' [M]参数非法的GET请求, 非法参数为: \n|---n_per_page: ', n_per_page, '\n|---p_index: ', p_index, '\n|---来自: ', req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1]);
+        res.status(400).json({ error: 'Bad request' }); // 参数非法
+        return;
+    }
+
+    // 查询数据库中指定分页的日志, 同时返回总的记录数量
+    connection.query(`SELECT logs.*, total_count.total_count FROM logs CROSS JOIN (SELECT COUNT(*) AS total_count FROM logs) AS total_count LIMIT ? OFFSET ?;`, [n_per_page, (p_index - 1) * n_per_page], (error, results) => {
+        if (error) {
+            console.log('Failed to query the database: ', error);
+            res.status(500).json({error: 'Failed to query the database'});
+        } else {
+            res.json(results);  // 前端用res.data获取results
+        }
+    });
+
+    console.log(`\n[${getFormattedDate()}] [/api/logs] [L]合法的GET请求, 参数为: \n|---n_per_page: ${n_per_page} \n|---p_index: ${p_index} \n|---api_key: ${api_key} \n来自: ${req.rawHeaders[req.rawHeaders.indexOf('Origin') + 1]}`);
 });
+
+/**
+ * ## `putLog()` 将日志写入数据库
+ * @param {String} api - 请求的接口 e.g. '/api/counts'
+ * @param {String} method - 请求方式 'GET', 'PUT', 'POST', 'DELETE'
+ * @param {Object} params - 包含请求参数的对象 e.g. {name: 'qrcode'}
+ * @param {String} origin - 请求来源 e.g. 'https://nav.qiuyedx.com/#/tools/qrcode'
+ * @param {String} ip - 请求ip e.g. ''
+ * @param {String} state - 日志等级 'L', 'M', 'H'
+ * @param {String} log - 日志内容与描述 e.g. '合法的PUT请求'
+ */
+const putLog = (api, method, params, origin, ip, state, log) => {
+    const str_params = JSON.stringify(params);
+    connection.query('INSERT INTO logs (api, method, params, origin, ip, state, log) VALUES (?, ?, ?, ?, ?, ?, ?)', [api, method, str_params, origin, ip, state, log], (error) => {
+        if (error) {
+            console.log(`[Error] putLog()失败`, error);
+            return false;
+        } else {
+            return true;
+        }
+    });
+};
