@@ -24,7 +24,7 @@
     - 返回参数(指定url时):
       - `data`: 对象数组, 指定网页的访问信息 e.g. `[{"id": 1,"domain": "test.domain","url": "/tools/QRPage","count": 20,"ftime": "2023-07-20T14:36:23.000Z","ltime": "2023-07-21T07:56:25.000Z"}]`
     - 返回参数(不指定url时): 
-      - `data`: 对象数组, 指定`domain`所有网页的总访问信息 e.g.`[{"domain": "test.domain","sum_count": 85 }]`
+      - `data`: 对象数组, 指定`domain`所有网页的访问信息和**全站访问量**`sum_count` e.g.`[{"id": 1,"domain": "test.domain","url": "/tools/QRPage","count": 20,"ftime": "2023-07-20T14:36:23.000Z","ltime": "2023-07-21T07:56:25.000Z", "sum_count": 85 }]`
   - PUT请求 *更新指定网页的访问信息, count++*
     - 请求参数:
       - `domain`: String类型, (网页)来源主机域名 e.g. `'nav.qiuyedx.com'`

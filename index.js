@@ -139,8 +139,8 @@ app.get('/api/url/counts', (req, res) => {
         return;
     }
 
-    if(!url){   // 若未指定url，仅指定了domain，则返回该domain下所有url的记录
-        connection.query(`SELECT domain, SUM(count) AS sum_count FROM url_counts WHERE domain = ?`, [domain], (error, results) => {
+    if(!url){   // 若未指定url, 仅指定了domain, 则返回该domain下所有url的记录, 同时返回全站访问量(sum_count)
+        connection.query(`SELECT url_counts.*, sum_count.sum_count FROM url_counts CROSS JOIN (SELECT SUM(count) AS sum_count FROM url_counts WHERE domain = ?) AS sum_count`, [domain], (error, results) => {
             if (error) {
                 console.log('Failed to query the database: ', error);
                 res.status(500).json({error: 'Failed to query the database'});
@@ -148,7 +148,7 @@ app.get('/api/url/counts', (req, res) => {
                 res.json(results);  // 前端用res.data获取results
             }
         });
-    }else{  // 若指定了url，则查询数据库中指定domain和url的记录
+    }else{  // 若指定了url, 则查询数据库中指定domain和url的记录
         connection.query(`SELECT * FROM url_counts WHERE url = ? AND domain = ?`, [url, domain], (error, results) => {
             if (error) {
                 console.log('Failed to query the database: ', error);
