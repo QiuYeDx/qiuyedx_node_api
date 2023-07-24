@@ -14,7 +14,7 @@
       - `name`: String类型, 服务名 e.g.`'qrcode'`
       - `api_key`: String类型, 密钥
     - 返回参数:
-      - `data`: String类型, 请求状态 e.g. `'OK'`
+      - `data`: 对象数组, 更新后的指定服务的请求信息 e.g. `[{id: 1, name: 'qrcode', count: 23, ftime: '2023-07-11T15:49:55.000Z', ltime: '2023-07-20T15:38:11.000Z'}]`
 - `/api/url/counts`
   - GET请求 *查询指定网页的访问信息*
     - 请求参数:

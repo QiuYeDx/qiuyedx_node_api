@@ -98,7 +98,16 @@ app.put('/api/counts', (req, res) => {
                     if (error) {
                         res.status(500).json({error: 'Failed to create new record'});
                     } else {
-                        res.sendStatus(200);    // 前端获取的res中，res.data是默认值'OK'
+                        // res.sendStatus(200);    // 前端获取的res中，res.data是默认值'OK'
+                        // 查询数据库中指定name的记录
+                        connection.query(`SELECT * FROM counts WHERE name = ?`, [name], (error, results) => {
+                            if (error) {
+                                console.log('Failed to query the database: ', error);
+                                res.status(500).json({error: 'Failed to query the database'});
+                            } else {
+                                res.json(results);  // 前端用res.data获取results, 这里res.data是个长度为零或一的数组
+                            }
+                        });
                     }
                 });
             } else {
@@ -107,7 +116,16 @@ app.put('/api/counts', (req, res) => {
                     if (error) {
                         res.status(500).json({error: 'Failed to update the count'});
                     } else {
-                        res.sendStatus(200);    // 前端获取的res中，res.data是默认值'OK'
+                        // res.sendStatus(200);    // 前端获取的res中，res.data是默认值'OK'
+                        // 查询数据库中指定name的记录
+                        connection.query(`SELECT * FROM counts WHERE name = ?`, [name], (error, results) => {
+                            if (error) {
+                                console.log('Failed to query the database: ', error);
+                                res.status(500).json({error: 'Failed to query the database'});
+                            } else {
+                                res.json(results);  // 前端用res.data获取results, 这里res.data是个长度为零或一的数组
+                            }
+                        });
                     }
                 });
             }
